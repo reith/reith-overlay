@@ -1,6 +1,5 @@
-# Copyright 1999-2016 Gentoo Foundation
+# Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
-# $Id$
 
 EAPI=5
 WX_GTK_VER="3.0"
@@ -16,10 +15,10 @@ SRC_URI="http://www.erlang.org/download/otp_src_${PV}.tar.gz
 	http://erlang.org/download/otp_doc_man_${PV}.tar.gz
 	doc? ( http://erlang.org/download/otp_doc_html_${PV}.tar.gz )"
 
-LICENSE="ErlPL-1.1"
-SLOT="0"
-KEYWORDS="~alpha ~amd64 ~arm ~ia64 ~ppc ~ppc64 ~sparc ~x86 ~x86-fbsd ~x86-freebsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~x64-solaris"
-IUSE="compat-ethread doc emacs halfword hipe java kpoll libressl odbc smp sctp ssl systemd tk wxwidgets"
+LICENSE="Apache-2.0"
+SLOT="18"
+KEYWORDS="~arm ~arm64 ~ia64 ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~x64-solaris"
+IUSE="compat-ethread dirty-schedulers doc emacs halfword hipe java kpoll libressl odbc smp sctp ssl systemd tk wxwidgets"
 
 RDEPEND="
 	ssl? (
@@ -28,7 +27,8 @@ RDEPEND="
 	)
 	emacs? ( virtual/emacs )
 	java? ( >=virtual/jdk-1.2:* )
-	odbc? ( dev-db/unixODBC )"
+	odbc? ( dev-db/unixODBC )
+	systemd? ( sys-apps/systemd )"
 DEPEND="${RDEPEND}
 	wxwidgets? ( x11-libs/wxGTK:${WX_GTK_VER}[X,opengl] virtual/glu )
 	sctp? ( net-misc/lksctp-tools )
@@ -75,8 +75,7 @@ src_configure() {
 
 	econf \
 		--enable-threads \
-		--enable-dirty-schedulers \
-		--enable-native-libs \
+		$(use_enable dirty-schedulers) \
 		$(use_enable sctp) \
 		$(use_enable systemd) \
 		$(use_enable halfword halfword-emulator) \
@@ -105,29 +104,20 @@ extract_version() {
 }
 
 src_install() {
-	local ERL_LIBDIR=/usr/$(get_libdir)/erlang
+	local slot_suffix=/erlang/${SLOT}
+	local ERL_LIBDIR=/usr/$(get_libdir)${slot_suffix}
 	local ERL_INTERFACE_VER=$(extract_version lib/erl_interface EI_VSN)
 	local ERL_ERTS_VER=$(extract_version erts VSN)
 
-	emake INSTALL_PREFIX="${D}" install
+	emake INSTALL_PREFIX="${D}" libdir_suffix=${slot_suffix} install
 	dodoc AUTHORS README.md
-
-	dosym "${ERL_LIBDIR}/bin/erl" /usr/bin/erl
-	dosym "${ERL_LIBDIR}/bin/erlc" /usr/bin/erlc
-	dosym "${ERL_LIBDIR}/bin/escript" /usr/bin/escript
-	dosym \
-		"${ERL_LIBDIR}/lib/erl_interface-${ERL_INTERFACE_VER}/bin/erl_call" \
-		/usr/bin/erl_call
-	dosym "${ERL_LIBDIR}/erts-${ERL_ERTS_VER}/bin/beam" /usr/bin/beam
-	use smp && dosym "${ERL_LIBDIR}/erts-${ERL_ERTS_VER}/bin/beam.smp" /usr/bin/beam.smp
-
-	## Remove ${D} from the following files
-	sed -e "s:${D}::g" -i "${ED}${ERL_LIBDIR}/bin/erl"
-	sed -e "s:${D}::g" -i "${ED}${ERL_LIBDIR}/bin/start"
-	grep -rle "${D}" "${ED}/${ERL_LIBDIR}/erts-${ERL_ERTS_VER}" | xargs sed -i -e "s:${D}::g"
 
 	## Clean up the no longer needed files
 	rm "${ED}/${ERL_LIBDIR}/Install"
+
+	for file in "${D}"/usr/bin/* ; do
+		mv "${file}" "${file}${SLOT}"
+	done
 
 	for i in "${WORKDIR}"/man/man* ; do
 		dodir "${ERL_LIBDIR}/${i##${WORKDIR}}"
@@ -139,7 +129,7 @@ src_install() {
 	# extend MANPATH, so the normal man command can find it
 	# see bug 189639
 	dodir /etc/env.d/
-	echo "MANPATH=\"${EPREFIX}${ERL_LIBDIR}/man\"" > "${ED}/etc/env.d/90erlang"
+	echo "MANPATH=\"${EPREFIX}${ERL_LIBDIR}/man\"" > "${ED}/etc/env.d/90erlang${SLOT}"
 
 	if use doc ; then
 		dohtml -A README,erl,hrl,c,h,kwc,info -r \
@@ -155,8 +145,9 @@ src_install() {
 		popd
 	fi
 
-	newinitd "${FILESDIR}"/epmd.init epmd
-	systemd_dounit "${FILESDIR}"/epmd.service
+	# these will be installed by erlang-eselect
+	# newinitd "${FILESDIR}"/epmd.init epmd@${SLOT}
+	# systemd_newunit "${FILESDIR}"/epmd.service
 }
 
 pkg_postinst() {
