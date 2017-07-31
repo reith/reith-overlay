@@ -16,8 +16,8 @@ SRC_URI="http://www.erlang.org/download/otp_src_${PV}.tar.gz
 	doc? ( http://erlang.org/download/otp_doc_html_${PV}.tar.gz )"
 
 LICENSE="Apache-2.0"
-SLOT="19"
-KEYWORDS="~arm ~arm64 ~ia64 ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~x64-solaris"
+SLOT="20"
+KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~ia64 ~ppc ~ppc64 ~sparc ~x86 ~x86-fbsd ~amd64-linux ~x86-linux ~ppc-macos ~x64-macos ~x86-macos ~x64-solaris"
 IUSE="compat-ethread dirty-schedulers doc emacs hipe java kpoll libressl odbc smp sctp ssl systemd tk wxwidgets"
 
 RDEPEND="
